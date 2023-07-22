@@ -16,7 +16,7 @@
 #define PROG_LICENSE 2023 Chuback Bidpaa, Unlicense
 #define PROG_USAGE                                                            \
   Usage:                                                                      \
-  stackls [-o outpath] PID
+  stackls [-o OutPath] PID
 #define PROG_EXAMPLE                                                          \
   Example:                                                                    \
   stackls 24212
@@ -34,7 +34,7 @@
 #endif
 
 #if !defined(__linux__) || !defined(__linux) || !defined(__linux)             \
-    || !defined(__gnu_linux__)
+    || !defined(__gnu_linux__) || !defined(__LINUX__)
 #warning "Compliant predefined CPP macros not detected."
 #warning                                                                      \
     "This code is designed to be compiled and ran under the GNU Linux operating system."
@@ -86,72 +86,69 @@
     }                                                                         \
   while (TMPCHR)
 
-#define CTX_stracefname slsctx->strace_fname
-#define CTX_previousline slsctx->previous_line
-#define CTX_previousfunction slsctx->previous_func
-#define CTX_stackcounter slsctx->stack_stackcounter
-#define CTX_inputstream slsctx->input_stream
-#define CTX_outputstream slsctx->output_stream
-#define CTX_eofstate slsctx->reached_eof
-#define CTX_outpath slsctx->outputfile_name
-#define CTX_procidstr slsctx->process_id_str
-#define CTX_procidint slsctx->process_id_int
+#define CTX_StraceFileName slsctx->strace_fname
+#define CTX_PreviousLine slsctx->previous_line
+#define CTX_PreviousFunc slsctx->previous_func
+#define CTX_StackCounter slsctx->stack_counter
+#define CTX_InputStream slsctx->input_stream
+#define CTX_OutputStream slsctx->output_stream
+#define CTX_EOFReached slsctx->reached_eof
+#define CTX_OutPath slsctx->outputfile_name
+#define CTX_ProcessIdStr slsctx->process_id_str
+#define CTX_ProcessIdInt slsctx->process_id_int
 
 typedef struct
 {
-  uint8_t strace_fname[FILENAME_MAX];
-  uint8_t previous_line[LINESIZE_MAX];
+  uint8_t strace_fname[FILENAME_MAX], previous_line[LINESIZE_MAX];
+  char *process_id_str, *outputfile_name;
+  FILE *input_stream, *output_stream;
   uint8_t *previous_func;
-  FILE *input_stream;
-  FILE *output_stream;
-  size_t stack_stackcounter;
-  int reached_eof;
+  size_t stack_counter;
   pid_t process_id_int;
-  char *process_id_str;
-  char *outputfile_name;
+  int reached_eof;
 } stackls_t;
 
 _coldbed_inline void
 stackls_parse_procid_str (stackls_t *slsctx)
 {
-  errno_CHECK (CTX_procidint = (pid_t)strtoll (CTX_procidstr, NULL, 10),
+  errno_CHECK (CTX_ProcessIdInt = (pid_t)strtoll (CTX_ProcessIdStr, NULL, 10),
                strtoll);
 }
 
 _coldbed_inline void
 stackls_get_strace_filename (stackls_t *slsctx)
 {
-  errno_CHECK (sprintf (&CTX_stracefname[0], "/proc/%s/stack", CTX_procidstr),
+  errno_CHECK (sprintf (&CTX_StraceFileName[0], "/proc/%s/stack", CTX_ProcessIdStr),
                sprintf);
 }
 
 _coldbed_inline void
 stackls_open_strace_fstream (stackls_t *slsctx)
 {
-  errno_CHECK (CTX_inputstream = fopen (&CTX_stracefname[0], "r"), fopen);
+  errno_CHECK (CTX_InputStream = fopen (&CTX_StraceFileName[0], "r"), fopen);
 }
 
 _coldbed_inline void
 stackls_open_output_fstream (stackls_t *slsctx)
 {
-  if (CTX_outputstream != stdout)
-    errno_CHECK (CTX_outputstream = fopen (&CTX_outpath[0], "w"), fopen);
+  if (CTX_OutputStream != stdout)
+    errno_CHECK (CTX_OutputStream = fopen (&CTX_OutPath[0], "w"), fopen);
   else
-    CTX_outputstream = stdout;
+    CTX_OutputStream = stdout;
 }
 
 _coldbed_inline void
 stackls_close_input_fstream (stackls_t *slsctx)
 {
-  fclose (CTX_inputstream);
+  fclose (CTX_InputStream);
 }
 
 _coldbed_inline void
 stackls_close_output_stream (stackls_t *slsctx)
 {
-  errno_CHECK (fprintf (CTX_outputstream, "\n"), fprintf);
-  if (CTX_outputstream != stdout)
-    fclose (CTX_outputstream);
+  errno_CHECK (fprintf (CTX_OutputStream, "\n"), fprintf);
+  if (CTX_OutputStream != stdout)
+    fclose (CTX_OutputStream);
 }
 
 _hotbed_inline void
@@ -159,16 +156,16 @@ stackls_read_strace_line (stackls_t *slsctx)
 {
   char cchr;
   size_t top = 0;
-  fgetc (CTX_inputstream);
-  memset (&CTX_previousline[0], 0, LINESIZE_MAX);
-  while ((cchr = fgetc (CTX_inputstream)) != '\n')
+  fgetc (CTX_InputStream);
+  memset (&CTX_PreviousLine[0], 0, LINESIZE_MAX);
+  while ((cchr = fgetc (CTX_InputStream)) != '\n')
     {
       if (cchr == EOF)
         {
-          CTX_eofstate = TRUE;
+          CTX_EOFReached = TRUE;
           return;
         }
-      CTX_previousline[top++] = cchr;
+      CTX_PreviousLine[top++] = cchr;
     }
 }
 
@@ -176,23 +173,23 @@ _hotbed_inline void
 stackls_parse_strace_line (stackls_t *slsctx)
 {
   size_t plus_offset, space_offset;
-  errno_CHECK (space_offset = strcspn ((char *)&CTX_previousline[0], " "),
+  errno_CHECK (space_offset = strcspn ((char *)&CTX_PreviousLine[0], " "),
                strcspn);
-  errno_CHECK (plus_offset = strcspn ((char *)&CTX_previousline[0], "+"),
+  errno_CHECK (plus_offset = strcspn ((char *)&CTX_PreviousLine[0], "+"),
                strcspn);
 
-  CTX_previousline[plus_offset] = '\0';
-  CTX_previousfunction = &CTX_previousline[space_offset++];
+  CTX_PreviousLine[plus_offset] = '\0';
+  CTX_PreviousFunc = &CTX_PreviousLine[space_offset++];
 }
 
 _normal_inline void
 stackls_print_strace_line (stackls_t *slsctx)
 {
-  if (!CTX_eofstate)
+  if (!CTX_EOFReached)
     {
-      size_t new_count = CTX_stackcounter++;
-      errno_CHECK (fprintf (CTX_outputstream, OUTPUT_FMT, new_count,
-                            CTX_previousfunction),
+      size_t new_count = CTX_StackCounter++;
+      errno_CHECK (fprintf (CTX_OutputStream, OUTPUT_FMT, new_count,
+                            CTX_PreviousFunc),
                    fprintf);
     }
 }
@@ -205,7 +202,7 @@ stackls_main_iterative_procedure (stackls_t *slsctx)
   stackls_open_strace_fstream (slsctx);
   stackls_open_output_fstream (slsctx);
 
-  while (!CTX_eofstate)
+  while (!CTX_EOFReached)
     {
       stackls_read_strace_line (slsctx);
       stackls_parse_strace_line (slsctx);
@@ -240,8 +237,8 @@ parse_arguments (int argc, char **argv, stackls_t *slsctx)
       else
         {
           CHECK_PROCID (arg2, c);
-          CTX_procidstr = argv[1];
-          CTX_outputstream = stdout;
+          CTX_ProcessIdStr = argv[1];
+          CTX_OutputStream = stdout;
         }
     }
   else if (argc == 4)
@@ -253,8 +250,8 @@ parse_arguments (int argc, char **argv, stackls_t *slsctx)
           exit (EXIT_FAILURE);
         }
       CHECK_PROCID (arg4, c);
-      CTX_procidstr = argv[3];
-      CTX_outpath = argv[2];
+      CTX_ProcessIdStr = argv[3];
+      CTX_OutPath = argv[2];
     }
   else
     {
@@ -265,9 +262,9 @@ parse_arguments (int argc, char **argv, stackls_t *slsctx)
 _static_func void
 parse_stdin (stackls_t *slsctx)
 {
-  char c, *pidstr = CTX_procidstr;
-  CTX_procidstr = alloca (INT_WIDTH);
-  fscanf (stdin, "%s", CTX_procidstr);
+  char c, *pidstr = CTX_ProcessIdStr;
+  CTX_ProcessIdStr = alloca (INT_WIDTH);
+  fscanf (stdin, "%s", CTX_ProcessIdStr);
   CHECK_PROCID (pidstr, c);
 }
 
