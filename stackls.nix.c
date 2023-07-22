@@ -5,6 +5,7 @@
 #include <limits.h>
 #include <string.h>
 #include <unistd.h>
+#include <ctype.h>
 #include <fcntl.h>
 #include <sys/mman.h>
 
@@ -12,8 +13,8 @@
 #define MMAP_SIZE 1025
 #endif
 
-#ifndef FNNAME_SIZE
-#define FNNAME_SIZE 2049
+#ifndef FUNCNAME_MAX
+#define FUNCNAME_MAX 2049
 #endif
 
 #ifndef OUTPUT_FMT
@@ -43,10 +44,10 @@
 #endif
 
 #define _static_func static
-#define _reentrant_func
 
 #define _str_raw(...) #__VA_ARGS__
 #define STR(...) _str_raw(__VA_ARGS__)
+#define STR_LF(...) STR(__VA_ARGS__ \n)
 
 #define _mmap(FD, OFFSET) mmap(NULL, MMAP_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE, FD, OFFSET)
 
@@ -71,10 +72,8 @@
 #define CTX_outpath slsctx->outputfile_name
 
 typedef struct {
-	uint8_t procid_str[PID_NDIGITS];
 	uint8_t procfs_name[FILENAME_MAX];
-	uint8_t last_fnname[FNNAME_SIZE];
-	uint8_t outputfile_name[FILENAME_MAX];
+	uint8_t last_fnname[FUNCNAME_MAX];
 	FILE *output_stream;
 	pid_t process_id;
 	int procfs_fdesc;
@@ -82,6 +81,8 @@ typedef struct {
 	size_t procfs_offset;
 	size_t stack_counter;
 	int8_t reached_eof;
+	char *procid_str;
+	char *outputfile_name;
 } stackls_t;
 
 
@@ -102,7 +103,7 @@ stackls_parse_procid_str(stackls_t *slsctx) {
 
 _coldbed_inline void
 stackls_open_output_stream(stackls_t *slsctx) {
-	if (strncmp(&CTX_outpath[0], "stdout"))
+	if (CTX_outstrm != stdout)
 		errno_CHECK(CTX_outstrm = fopen(&CTX_outpath[0], "w"), fopen);
 	else
 		CTX_outstrm = stdout;
@@ -139,7 +140,7 @@ _hotbed_inline void
 stackls_read_procfs_mmap(stackls_t *slsctx) {
 	size_t linefeed_offset, plus_offset, space_offset, fnname_len;	
 	
-	errno_CHECK(memset(&CTX_lastfnm[0], 0, FNNAME_SIZE), memset);
+	errno_CHECK(memset(&CTX_lastfnm[0], 0, FUNCNAME_MAX), memset);
 
 	errno_CHECK(linefeed_offset = strcpn((char*)CTX_pfsmmap, "\n"), strcspn);
 	errno_CHECK(space_offset = strcpn((char*)CTX_pfsmmap, " "), strcspn);
@@ -157,7 +158,7 @@ stackls_print_last_fnname(stackls_t *slsctx) {
 }
 
 _static_func void
-stackls_iterate_through_pfs(stackls_t *slsctx) {
+stackls_main_iterative_procedure(stackls_t *slsctx) {
 	stackls_parse_procid_str(slsctx);
 	stackls_get_procfs_filename(slsctx);
 	stackls_open_procfs_filedesc(slsctx)
@@ -173,4 +174,62 @@ stackls_iterate_through_pfs(stackls_t *slsctx) {
 
 	stackls_close_output_stream(slsctx);
 	stackls_close_procfs_filedesc(slsctx);
+}
+
+#define PROG_NAME stackls
+#define PROG_LICENSE 2023 Chuback Bidpaa, Unlicense
+#define PROG_USAGE Usage: stackls [-o outpath] PID
+#define PROG_EXAMPLE Example: stackls 24212
+#define PROG_HINT You may pass a filepath as output. Need not exit. Otherwise, prints to stdout.
+
+#define CHECK_PROCID(PROCID, TMPCHR)				\
+	while ((TMPCHR = *PROCID++)) {				\
+		if (!isdigit(TMPCHR)) {					\
+			fprintf(stderr, STR_LF(Invalid process id, type --help));		\
+			exit(EXIT_FAILURE)		\
+		}	\
+	}
+
+_static_func void
+display_help() {
+	fprintf(stdout, STR_LF(PROG_NAME PROG_LICENSE));
+	fprintf(stdout, STR_LF(PROG_USAGE));
+	fprintf(stdout, STR_LF(PROG_EXAMPLE));
+	fprintf(stdout, STR_LF(PROF_HINT));
+	fprintf(stdout, STR_LF());
+	exit(EXIT_SUCCESS);
+}
+
+static_func void
+parse_arguments(int argc, char **argv, stackls_t *slsctx) {
+	if (argc == 1)
+		display_help();
+	else if (argc == 2) {
+		char c, *arg2 = argv[1];
+		if (!strncmp(arg2, "--help", 6) || !strncmp(arg2, "-h", 2))
+			display_help();
+		else {
+			CHECK_PROCID(arg2, c);
+			CTX_procids = arg2;
+			CTX_outstrm = stdout;
+		}
+	} else if (argc == 4) {
+		char c, *arg2 = argv[1], *arg3 = argv[2], *arg4 = argv[3];
+		if (strncmp(arg2, "-o", 2)) {
+			fprintf(stderr, STR_LF(Wrong arguments, type --help));
+			exit(EXIT_FAILURE);
+		}
+		CHECK_PROCID(arg4, c);
+		CTX_procids = arg4;
+		CTX_outpath = arg3;
+	} else {
+		display_help();
+	}
+
+} 
+
+int main(int argc, char **argv) {
+	stackls_t slsctx;
+	parse_arguments(argc, argv, &slsctx);
+	stackls_main_iterative_procedure(&slsctx);
 }
