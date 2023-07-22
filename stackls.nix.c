@@ -156,8 +156,6 @@ stackls_print_last_fnname(stackls_t *slsctx) {
 	errno_CHECK(fprintf(CTX_outstrm, OUTPUT_FMT, new_count, CTX_lastfnm), fprintf);
 }
 
-
-
 _static_func void
 stackls_iterate_through_pfs(stackls_t *slsctx) {
 	stackls_parse_procid_str(slsctx);
