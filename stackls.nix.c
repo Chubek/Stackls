@@ -1,3 +1,4 @@
+#define __STDC_WANT_IEC_60559_BFP_EXT__
 #include <alloca.h>
 #include <ctype.h>
 #include <errno.h>
@@ -7,7 +8,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/mman.h>
 #include <unistd.h>
 
 #define TRUE 1
@@ -94,7 +94,8 @@
 #define CTX_outputstream slsctx->output_stream
 #define CTX_eofstate slsctx->reached_eof
 #define CTX_outpath slsctx->outputfile_name
-#define CTX_procidstr slsctx->process_id
+#define CTX_procidstr slsctx->process_id_str
+#define CTX_procidint slsctx->process_id_int
 
 typedef struct
 {
@@ -105,9 +106,17 @@ typedef struct
   FILE *output_stream;
   size_t stack_stackcounter;
   int reached_eof;
-  char *process_id;
+  pid_t process_id_int;
+  char *process_id_str;
   char *outputfile_name;
 } stackls_t;
+
+_coldbed_inline void
+stackls_parse_procid_str (stackls_t *slsctx)
+{
+  errno_CHECK (CTX_procidint = (pid_t)strtoll (CTX_procidstr, NULL, 10),
+               strtoll);
+}
 
 _coldbed_inline void
 stackls_get_strace_filename (stackls_t *slsctx)
@@ -179,16 +188,20 @@ stackls_parse_strace_line (stackls_t *slsctx)
 _normal_inline void
 stackls_print_strace_line (stackls_t *slsctx)
 {
-  size_t new_count = CTX_stackcounter++;
-  errno_CHECK (
-      fprintf (CTX_outputstream, OUTPUT_FMT, new_count, CTX_previousfunction),
-      fprintf);
+  if (!CTX_eofstate)
+    {
+      size_t new_count = CTX_stackcounter++;
+      errno_CHECK (fprintf (CTX_outputstream, OUTPUT_FMT, new_count,
+                            CTX_previousfunction),
+                   fprintf);
+    }
 }
 
 _hotbed_inline void
 stackls_main_iterative_procedure (stackls_t *slsctx)
 {
   stackls_get_strace_filename (slsctx);
+  stackls_parse_procid_str (slsctx);
   stackls_open_strace_fstream (slsctx);
   stackls_open_output_fstream (slsctx);
 
@@ -262,7 +275,8 @@ int
 main (int argc, char **argv)
 {
   stackls_t slsctx;
-  if (isatty (fileno (stdin)))
+  memset (&slsctx, 0, sizeof (stackls_t));
+  if (!isatty (fileno (stdin)))
     {
       parse_stdin (&slsctx);
     }
