@@ -107,48 +107,58 @@ typedef struct {
   char *outputfile_name;
 } stackls_t;
 
-_normal_inline void stackls_get_procfs_filename(stackls_t *slsctx) {
+_normal_inline void 
+stackls_get_procfs_filename(stackls_t *slsctx) {
   errno_CHECK(sprintf(&CTX_pfsname[0], "/proc/%d/stack", CTX_procidn), sprintf);
 }
 
-_normal_inline void stackls_open_procfs_filedesc(stackls_t *slsctx) {
+_normal_inline void 
+stackls_open_procfs_filedesc(stackls_t *slsctx) {
   errno_CHECK(open(&CTX_pfsname[0], O_RDONLY), open);
 }
 
-_coldbed_inline void stackls_parse_procid_str(stackls_t *slsctx) {
+_coldbed_inline void 
+stackls_parse_procid_str(stackls_t *slsctx) {
   errno_CHECK(CTX_procidn = (pid_t)strtoll(&CTX_procids[0], 10, NULL), strtoll);
 }
 
-_coldbed_inline void stackls_open_output_stream(stackls_t *slsctx) {
+_coldbed_inline void 
+stackls_open_output_stream(stackls_t *slsctx) {
   if (CTX_outstrm != stdout)
     errno_CHECK(CTX_outstrm = fopen(&CTX_outpath[0], "w"), fopen);
   else
     CTX_outstrm = stdout;
 }
 
-_coldbed_inline void stackls_close_procfs_filedesc(stackls_t *slsctx) {
+_coldbed_inline void 
+stackls_close_procfs_filedesc(stackls_t *slsctx) {
   close(CTX_pfsfdsc);
 }
 
-_coldbed_inline void stackls_close_output_stream(stackls_t *slsctx) {
+_coldbed_inline void 
+stackls_close_output_stream(stackls_t *slsctx) {
   errno_CHECK(fprintf(CTX_outstrm, "\n"), fprintf);
   if (CTX_outstrm != stdout)
     fclose(CTX_outstrm);
 }
 
-_normal_inline void stackls_check_procfs_eof(stackls_t *slsctx) {
+_normal_inline void 
+stackls_check_procfs_eof(stackls_t *slsctx) {
   CTX_eofstat = lseek(CTX_pfsfdsc, SEEK_SET, CTX_pfsoffs + UCHAR_WIDTH) < 0;
 }
 
-_normal_inline void stackls_mmap_procfs_offset(stackls_t *slsctx) {
+_normal_inline void 
+stackls_mmap_procfs_offset(stackls_t *slsctx) {
   errno_CHECK(CTX_pfsmmap = (uint8_t *)_mmap(CTX_pfsfdsc, CTX_pfsoffs), mmap);
 }
 
-_normal_inline void stackls_unmap_procfs_mmap(stackls_t *slsctx) {
+_normal_inline void 
+stackls_unmap_procfs_mmap(stackls_t *slsctx) {
   errno_CHECK(munmap(CTX_pfsmmap, MMAP_SIZE), munmap);
 }
 
-_hotbed_inline void stackls_read_procfs_mmap(stackls_t *slsctx) {
+_hotbed_inline void 
+stackls_read_procfs_mmap(stackls_t *slsctx) {
   size_t linefeed_offset, plus_offset, space_offset, fnname_len;
 
   errno_CHECK(memset(&CTX_lastfnm[0], 0, FUNCNAME_MAX), memset);
@@ -165,13 +175,15 @@ _hotbed_inline void stackls_read_procfs_mmap(stackls_t *slsctx) {
               memmove);
 }
 
-_normal_inline void stackls_print_last_fnname(stackls_t *slsctx) {
+_normal_inline void 
+stackls_print_last_fnname(stackls_t *slsctx) {
   size_t new_count = CTX_counter++;
   errno_CHECK(fprintf(CTX_outstrm, OUTPUT_FMT, new_count, CTX_lastfnm),
               fprintf);
 }
 
-_static_func void stackls_main_iterative_procedure(stackls_t *slsctx) {
+_static_func void 
+stackls_main_iterative_procedure(stackls_t *slsctx) {
   stackls_parse_procid_str(slsctx);
   stackls_get_procfs_filename(slsctx);
   stackls_open_procfs_filedesc(slsctx) stackls_open_output_stream(slsctx);
@@ -188,7 +200,8 @@ _static_func void stackls_main_iterative_procedure(stackls_t *slsctx) {
   stackls_close_procfs_filedesc(slsctx);
 }
 
-_static_func void display_help() {
+_static_func void 
+display_help() {
   fprintf(stdout, STR_LF(PROG_NAME PROG_LICENSE));
   fprintf(stdout, STR_LF(PROG_USAGE));
   fprintf(stdout, STR_LF(PROG_EXAMPLE));
@@ -197,7 +210,8 @@ _static_func void display_help() {
   exit(EXIT_SUCCESS);
 }
 
-static_func void parse_arguments(int argc, char **argv, stackls_t *slsctx) {
+static_func void 
+parse_arguments(int argc, char **argv, stackls_t *slsctx) {
   if (argc == 1)
     display_help();
   else if (argc == 2) {
