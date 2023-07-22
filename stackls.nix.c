@@ -46,11 +46,13 @@
 #define _hotbed_inline static inline __attribute__ ((always_inline, hot))
 #define _coldbed_inline static inline __attribute__ ((always_inline, cold))
 #define _fn_metadata file __FILE__, line __LINE__
+#define _fn_name __PRETTY_FUNCTION__
 #else
 #define _normal_inline static inline
 #define _hotbed_inline static inline
 #define _coldbed_inline static inline
 #define _fn_metadata file __FILE__, line __LINE__
+#define _fn_name __func__
 #endif
 
 #define _static_func static
@@ -67,7 +69,7 @@
     {                                                                         \
       if (((long)(CLOSURE)) < 0)                                              \
         {                                                                     \
-          fprintf (stderr, "Error at function %s:\n", __PRETTY_FUNCTION__);   \
+          fprintf (stderr, "Error at function %s:\n", _fn_name);              \
           perror (STR (CALL at _fn_metadata));                                \
           exit (EXIT_FAILURE);                                                \
         }                                                                     \
