@@ -182,11 +182,12 @@ stackls_print_last_fnname(stackls_t *slsctx) {
               fprintf);
 }
 
-_static_func void 
+_hotbed_inline void 
 stackls_main_iterative_procedure(stackls_t *slsctx) {
   stackls_parse_procid_str(slsctx);
   stackls_get_procfs_filename(slsctx);
-  stackls_open_procfs_filedesc(slsctx) stackls_open_output_stream(slsctx);
+  stackls_open_procfs_filedesc(slsctx);
+  stackls_open_output_stream(slsctx);
 
   while (!CTX_eofstat) {
     stackls_mmap_procfs_offset(slsctx);
