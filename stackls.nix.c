@@ -97,13 +97,13 @@ stackls_open_procfs_filedesc(stackls_t *slsctx) {
 
 _coldbed_inline void
 stackls_parse_procid_str(stackls_t *slsctx) {
-	
+	errno_CHECK(CTX_procidn = (pid_t)strtoll(&CTX_procids[0], 10, NULL), strtoll);
 }
 
 _coldbed_inline void
 stackls_open_output_stream(stackls_t *slsctx) {
 	if (strncmp(&CTX_outpath[0], "stdout"))
-		CTX_outstrm = fopen(&CTX_outpath[0], "w");
+		errno_CHECK(CTX_outstrm = fopen(&CTX_outpath[0], "w"), fopen);
 	else
 		CTX_outstrm = stdout;
 }
@@ -113,6 +113,13 @@ stackls_close_procfs_filedesc(stackls_t *slsctx) {
 	close(CTX_pfsfdsc);
 }
 
+_coldbed_inline void
+stackls_close_output_stream(stackls_t *slsctx) {
+	errno_CHECK(fprintf(CTX_outstrm, "\n"), fprintf);
+	if (CTX_outstrm != stdout)
+		fclose(CTX_outstrm);
+}
+
 _normal_inline void
 stackls_check_procfs_eof(stackls_t *slsctx) {
 	CTX_eofstat = lseek(CTX_pfsfdsc, SEEK_SET, CTX_pfsoffs + UCHAR_WIDTH) < 0;
@@ -120,12 +127,12 @@ stackls_check_procfs_eof(stackls_t *slsctx) {
 
 _normal_inline void
 stackls_mmap_procfs_offset(stackls_t *slsctx) {
-	errno_CHECK(CTX_pfsmmap = (uint8_t*)_mmap(CTX_pfsfdsc, CTX_pfsoffs));
+	errno_CHECK(CTX_pfsmmap = (uint8_t*)_mmap(CTX_pfsfdsc, CTX_pfsoffs), mmap);
 }
 
 _normal_inline void
 stackls_unmap_procfs_mmap(stackls_t *slsctx) {
-	errno_CHECK(munmap(CTX_pfsmmap, MMAP_SIZE));
+	errno_CHECK(munmap(CTX_pfsmmap, MMAP_SIZE), munmap);
 }
 
 _hotbed_inline void
@@ -146,21 +153,26 @@ stackls_read_procfs_mmap(stackls_t *slsctx) {
 _normal_inline void
 stackls_print_last_fnname(stackls_t *slsctx) {
 	size_t new_count = CTX_counter++;
-	errno_CHECK(fprintf(CTX_outstrm, OUTPUT_FMT, new_count, CTX_lastfnm));
+	errno_CHECK(fprintf(CTX_outstrm, OUTPUT_FMT, new_count, CTX_lastfnm), fprintf);
 }
 
 
 
 _static_func void
 stackls_iterate_through_pfs(stackls_t *slsctx) {
-	CTX_procidn = (pid_t)strtoll(&CTX_procids[0], 10, NULL);
-
+	stackls_parse_procid_str(slsctx);
 	stackls_get_procfs_filename(slsctx);
 	stackls_open_procfs_filedesc(slsctx)
 	stackls_open_output_stream(slsctx);
 
 	while(!CTX_eofstat) {
 		stackls_mmap_procfs_offset(slsctx);
-
+		stackls_read_procfs_mmap(slsctx);
+		stackls_print_last_fnname(slsctx);
+		stackls_unmap_procfs_mmap(slsctx);
+		stackls_check_procfs_eof(slsctx);
 	}
+
+	stackls_close_output_stream(slsctx);
+	stackls_close_procfs_filedesc(slsctx);
 }
