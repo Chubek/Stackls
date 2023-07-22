@@ -95,24 +95,29 @@
 #define NO_FLAGS 0
 #define NO_THREADS 0
 
-#define CTX_ProcessNameArr pSlsCtx->aProcessName
-#define CTX_ProcessNameStr pSlsCtx->pszProcessName
-#define CTX_EntryProcessName pSlsCtx->pszEntryProcesssName
-#define CTX_ProcessHandle pSlsCtx->hProcess
-#define CTX_Help32SnapShot pSlsCtx->hSnapshot
-#define CTX_SelfHeapHandle pSlsCtx->hSelfHeap
-#define CTX_StandardInput pSlsCtx->hStdIn
-#define CTX_StandardOutput pSlsCtx->hStdOut
-#define CTX_StandardError pSlsCtx->hStdErr
-#define CTX_ProcessEntryBuff pSlsCtx->pProcessEntry
-#define CTX_CurrentStackFrame pSlsCtx->pStackFrame
-#define CTX_MachineContext pSlsCtx->pMachineContext
-#define CTX_StackIsAtBottom pSlsCtx->bTraceEnded
-#define CTX_CurrentSymbol pSlsCtx->pCurrentSymbol
+#define CTX_ProcessNameArr pStraceCtx->aProcessName
+#define CTX_ProcessNameStr pStraceCtx->pszProcessName
+#define CTX_EntryProcessName pStraceCtx->pszEntryProcesssName
+#define CTX_ProcessHandle pStraceCtx->hProcess
+#define CTX_Help32SnapShot pStraceCtx->hSnapshot
+#define CTX_SelfHeapHandle pStraceCtx->hSelfHeap
+#define CTX_StandardInput pStraceCtx->hStdIn
+#define CTX_StandardOutput pStraceCtx->hStdOut
+#define CTX_StandardError pStraceCtx->hStdErr
+#define CTX_ProcessEntryBuff pStraceCtx->pProcessEntry
+#define CTX_CurrentStackFrame pStraceCtx->pStackFrame
+#define CTX_MachineContext pStraceCtx->pMachineContext
+#define CTX_StackIsAtBottom pStraceCtx->bTraceEnded
+#define CTX_CurrentSymbol pStraceCtx->pCurrentSymbol
+#define CTX_Displacement pStraceCtx->dwDisplacement
+#define CTX_LastSymNameArr pStraceCtx->aLastSymName
+#define CTX_LastSymNameStr pStraceCtx->pszLastSymName
 
 typedef struct {
-	BYTE aProcessName[MAX_PROC_NAME], *pszProcessName, *pszEntryProcesssName;
+	TCHAR aProcessName[MAX_PROC_NAME], *pszProcessName, *pszEntryProcesssName;
+	TCHAR aLastSymName[MAX_SYM_NAME], *pszLastSymName;
 	HANDLE hProcess, hSnapshot, hSelfHeap, hStdin, hStdOut, hStdErr;
+	DWORD64 dwDisplacement;
 	PROCESS32ENTRY *pProcessEntry;
 	LPSTACKFRAME pStackFrame;
 	CONTEXT *pMachineContext;
@@ -151,7 +156,7 @@ fnErrorExit(LPTSTR lpszFunction)
 }
 
 _coldbed_inline void
-fnStacklsInitHandles(PSTACKLSCTX pSlsCtx) {
+fnStacklsInitHandles(PSTACKLSCTX pStraceCtx) {
 	CTX_ProcessNameStr = &CTX_ProcessNameArr[0];
 	winerror_CHECK(CTX_StandardInput = GetStdHandle(STD_INPUT_HANDLE), GetStdHandle);
 	winerror_CHECK(CTX_StandardOutput = GetStdHandle(STD_OUTPUT_HANDLE), GetStdHandle);
@@ -161,7 +166,7 @@ fnStacklsInitHandles(PSTACKLSCTX pSlsCtx) {
 }
 
 _coldbed_inline void
-fnStacklsCloseHandles(PSTACKLSCTX pSlsCtx) {
+fnStacklsCloseHandles(PSTACKLSCTX pStraceCtx) {
 	winerror_CHECK(CloseHandle(CTX_SelfHeapHandle), CloseHandle);
 	winerror_CHECK(CloseHandle(CTX_Help32SnapShor), CloseHandle);
 	winerror_CHECK(CloseHandle(CTX_StandardInput), CloseHandle);
@@ -170,12 +175,12 @@ fnStacklsCloseHandles(PSTACKLSCTX pSlsCtx) {
 }
 
 _coldbed_inline void
-fnStacklsAllocateProcEntryBuffer(PSTACKLSCTX pSlsCtx) {
+fnStacklsAllocateProcEntryBuffer(PSTACKLSCTX pStraceCtx) {
 	winerror_CHECK(CTX_ProcessEntryBuff = (PROCESS32ENTRY*)HeapAlloc(CTX_SelfHeapHandle, HEAP_ZERO_MEMORY, sizeof(PROCESS32ENTRY)), HeapAlloc);
 }
 
 _coldbed_inline void
-fnStacklsDeallocateProcEntryBuffer(PSTACKLSCTX pSlsCtx) {
+fnStacklsDeallocateProcEntryBuffer(PSTACKLSCTX pStraceCtx) {
 	winerror_CHECK(HeapFree(CTX_SelfHeapHandle, NO_FLAGS, CTX_ProcessEntryBuff), HeapFree);
 }
 
@@ -185,37 +190,37 @@ fnStacklsAllocateStackFrameBuffer(PSTACKLSCTX pSlscCtx) {
 }
 
 _coldbed_inline void
-fnStacklsDeallocateStackFrameBuffer(PSTACKLSCTX pSlsCtx) {
+fnStacklsDeallocateStackFrameBuffer(PSTACKLSCTX pStraceCtx) {
 	winerror_CHECK(HeapFree(CTX_SelfHeapHandle, NO_FLAGS, CTX_CurrentStackFrame), HeapFree);
 }
 
 _coldbed_inline void
-fnStacklsAllocateMachineContextBuffer(PSTACKLSCTX pSlsCtx) {
+fnStacklsAllocateMachineContextBuffer(PSTACKLSCTX pStraceCtx) {
 	winerror_CHECK(CTX_MachineContext = (CONTEXT*)HeapAlloc(CTX_SelfHeapHandle, HEAP_ZERO_MEMORY, sizeof(CONTEXT)), HeapAlloc);
 }
 
 _coldbed_inline void
-fnStacklsDeallocateMachineContextBuffer(PSTACKLSCTX pSlsCtx) {
+fnStacklsDeallocateMachineContextBuffer(PSTACKLSCTX pStraceCtx) {
 	winerror_CHECK(HeapFree(CTX_SelfHeapHandle, NO_FLAGS, CTX_MachineContext), HeapFree);
 }
 
 _coldbed_inline void
-fnStacklsAllocateCurrentSymbolBuffer(PSTACKLS pSlsCtx) {
+fnStacklsAllocateCurrentSymbolBuffer(PSTACKLS pStraceCtx) {
 	winerror_CHECK(CTX_CurrentSymbol = (PSYMBOL_INFO)HeapAlloc(CTX_SelfHeapHandle, HEAP_ZERO, MAX_SYM_NAME), HeapAlloc);
 }
 
 _coldbed_inline void
-fnStacklsDeallocateCurrentSymbolBuffer(PSTACKLS pSlsCtx) {
+fnStacklsDeallocateCurrentSymbolBuffer(PSTACKLS pStraceCtx) {
 	winerror_CHECK(HeapFree(CTX_SelfHeapHandle, NO_FLAGS, CTX_CurrentSymbol), HeapFree);
 }
 
 _normal_inline void
-fnStacklsOpenProcessHandle(PSTACKLSCTX pSlsCtx) {
+fnStacklsOpenProcessHandle(PSTACKLSCTX pStraceCtx) {
 	winerror_CHECK(CTX_ProcessHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, CTX_ProcessEntryBuff->th32ProcessID), OpenProcess);
 }
 
 _normal_inline void
-fnStacklsInitiateContextAndSymbols(PSTACKLSCTX pSlsCtx) {
+fnStacklsInitiateContextAndSymbols(PSTACKLSCTX pStraceCtx) {
 	winerror_CHECK(RtlCaptureContext(CTX_MachineContext), RtlCaptureContext);
 	winerror_CHECK(SymInitialize(CTX_ProcessHandle, NULL, TRUE), SymInitialize);
 	CTX_CurrentSymbol->SizeOfStruct = sizeof(SYMBOL_INFO);
@@ -223,13 +228,13 @@ fnStacklsInitiateContextAndSymbols(PSTACKLSCTX pSlsCtx) {
 }
 
 _normal_inline void
-fnStacklsInitializeStackWalk(PSTACKLSCTX pSlsCtx) {
+fnStacklsInitializeStackWalk(PSTACKLSCTX pStraceCtx) {
 	SecureZeroMemory(CTX_CurrentStackFrame, sizeof(STACKFRAME64));
 	ASSIGN_MACHINE_VALUES(CTX_CurrentStackFrame, CTX_MachineContext);
 }
 
 _hotbed_inline void
-fnStacklsFindProcessHandle(PSTACKLSCTX pSlsCtx) {
+fnStacklsFindProcessHandle(PSTACKLSCTX pStraceCtx) {
 	int dwStrCmpRes;
 	CTX_ProcessEntryBuff->dwSize = sizeof(PROCESSENTRY32);
 	if (Process32First(CTX_Help32SnapShot, CTX_ProcessEntryBuff)) {
@@ -237,14 +242,20 @@ fnStacklsFindProcessHandle(PSTACKLSCTX pSlsCtx) {
 			CTX_EntryProcessName = &CTX_ProcessEntryBuff->szExecFile[0];
 			winerror_CHECK(dwStrCmpRes = StringCompareEx(LOCAL_NAME_INVARIANT, NO_FLAGS, CTX_ProcessNameStr, -1, CTX_EntryProcessName, -1, NULL, NULL, NO_FLAGS), StringCompareEx);
 			if (!dwStrCmpRes) {
-				fnStacklsOpenProcessHandle(pSlsCtx);
-				fnStacklsDeallocateProcEntryBuffer(pSlsCtx);
+				fnStacklsOpenProcessHandle(pStraceCtx);
+				fnStacklsDeallocateProcEntryBuffer(pStraceCtx);
 			}
 		}
 	}
 }
 
 _hotbed_inline void 
-fnStacklsLoadTheNextFrame(PSTACKLSCTX pSlsCtx) {
-	CTX_StackIsAtBottom = !(StackWalk64(MACHINE_TYPE, CTX_ProcessHandle, NO_THREADS, CTX_CurrentStackFrame, CTX_MachineContext, NULL, SymFunctionTableAccess64, SymGetModuleBase64, NULL));
+fnStacklsLoadTheNextFrame(PSTACKLSCTX pStraceCtx) {
+	CTX_StackIsAtBottom = !(StackWalk64(MACHINE_TYPE, *CTX_ProcessHandle, NO_THREADS, CTX_CurrentStackFrame, CTX_MachineContext, NULL, SymFunctionTableAccess64, SymGetModuleBase64, NULL));
+}
+
+_hotbed_inline void
+fnStacklsExtractSymbolFromFrame(PSTACKLSCTX pStraceCtx) {
+	winerror_CHECK(SymFromAddr(*CTX_ProcessHandle, CTX_CurrentStackFrame->AddrPC.Offset, CTX_Displacement, CTX_CurrentSymbol) , SymFromAddr);
+	winerror_CHECK(UnDecorateSymbolName(CTX_CurrentSymbol->Name, (PSTR)CTX_LastSymblStr, MAX_SYM_NAME, UNDNAME_COMPLETE), UnDecorateSymbolName);
 }
