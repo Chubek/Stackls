@@ -64,7 +64,7 @@
 #define _mmap(FD, OFFSET)                                                     \
   mmap (NULL, MMAP_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE, FD, OFFSET)
 
-#define errno_CHECK(CLOSURE, CALL)                                            \
+#define nixerror_CHECK(CLOSURE, CALL)                                         \
   do                                                                          \
     {                                                                         \
       if (((long)(CLOSURE)) < 0)                                              \
@@ -113,14 +113,14 @@ typedef struct
 _coldbed_inline void
 stackls_parse_procid_str (stackls_t *slsctx)
 {
-  errno_CHECK (CTX_ProcessIdInt = (pid_t)strtoll (CTX_ProcessIdStr, NULL, 10),
+  nixerror_CHECK (CTX_ProcessIdInt = (pid_t)strtoll (CTX_ProcessIdStr, NULL, 10),
                strtoll);
 }
 
 _coldbed_inline void
 stackls_get_strace_filename (stackls_t *slsctx)
 {
-  errno_CHECK (
+  nixerror_CHECK (
       sprintf (&CTX_StraceFileName[0], "/proc/%s/stack", CTX_ProcessIdStr),
       sprintf);
 }
@@ -128,14 +128,14 @@ stackls_get_strace_filename (stackls_t *slsctx)
 _coldbed_inline void
 stackls_open_strace_fstream (stackls_t *slsctx)
 {
-  errno_CHECK (CTX_InputStream = fopen (&CTX_StraceFileName[0], "r"), fopen);
+  nixerror_CHECK (CTX_InputStream = fopen (&CTX_StraceFileName[0], "r"), fopen);
 }
 
 _coldbed_inline void
 stackls_open_output_fstream (stackls_t *slsctx)
 {
   if (CTX_OutputStream != stdout)
-    errno_CHECK (CTX_OutputStream = fopen (&CTX_OutPath[0], "w"), fopen);
+    nixerror_CHECK (CTX_OutputStream = fopen (&CTX_OutPath[0], "w"), fopen);
   else
     CTX_OutputStream = stdout;
 }
@@ -149,7 +149,7 @@ stackls_close_input_fstream (stackls_t *slsctx)
 _coldbed_inline void
 stackls_close_output_stream (stackls_t *slsctx)
 {
-  errno_CHECK (fprintf (CTX_OutputStream, "\n"), fprintf);
+  nixerror_CHECK (fprintf (CTX_OutputStream, "\n"), fprintf);
   if (CTX_OutputStream != stdout)
     fclose (CTX_OutputStream);
 }
@@ -176,9 +176,9 @@ _hotbed_inline void
 stackls_parse_strace_line (stackls_t *slsctx)
 {
   size_t plus_offset, space_offset;
-  errno_CHECK (space_offset = strcspn ((char *)&CTX_PreviousLine[0], " "),
+  nixerror_CHECK (space_offset = strcspn ((char *)&CTX_PreviousLine[0], " "),
                strcspn);
-  errno_CHECK (plus_offset = strcspn ((char *)&CTX_PreviousLine[0], "+"),
+  nixerror_CHECK (plus_offset = strcspn ((char *)&CTX_PreviousLine[0], "+"),
                strcspn);
 
   CTX_PreviousLine[plus_offset] = '\0';
@@ -191,7 +191,7 @@ stackls_print_strace_line (stackls_t *slsctx)
   if (!CTX_EOFReached)
     {
       size_t new_count = CTX_StackCounter++;
-      errno_CHECK (
+      nixerror_CHECK (
           fprintf (CTX_OutputStream, OUTPUT_FMT, new_count, CTX_PreviousFunc),
           fprintf);
     }
