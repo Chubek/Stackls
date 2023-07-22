@@ -50,7 +50,7 @@
 #define _normal_inline static inline
 #define _hotbed_inline static inline
 #define _coldbed_inline static inline
-#define _fn_metadata function __func__, file __FILE__, line __LINE__
+#define _fn_metadata file __FILE__, line __LINE__
 #endif
 
 #define _static_func static
