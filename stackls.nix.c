@@ -22,7 +22,7 @@
   stackls 24212
 #define PROG_HINT                                                             \
   You may pass a filepath as output.Need not exit.Otherwise,                  \
-      prints to stdout.You can also redirect the PID via stdin, however,      \
+      prints to stdout. You can also redirect the PID via stdin, however,     \
       then, the arguments will not be working.
 
 #ifndef LINESIZE_MAX
