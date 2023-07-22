@@ -93,6 +93,7 @@
 #endif	
 
 #define NO_FLAGS 0
+#define NO_THREADS 0
 
 #define CTX_ProcessNameArr pSlsCtx->aProcessName
 #define CTX_ProcessNameStr pSlsCtx->pszProcessName
@@ -106,7 +107,7 @@
 #define CTX_ProcessEntryBuff pSlsCtx->pProcessEntry
 #define CTX_CurrentStackFrame pSlsCtx->pStackFrame
 #define CTX_MachineContext pSlsCtx->pMachineContext
-#define CTX_TraceEndStatus pSlsCtx->bTraceEnded
+#define CTX_StackIsAtBottom pSlsCtx->bTraceEnded
 #define CTX_CurrentSymbol pSlsCtx->pCurrentSymbol
 
 typedef struct {
@@ -222,7 +223,7 @@ fnStacklsInitiateContextAndSymbols(PSTACKLSCTX pSlsCtx) {
 }
 
 _normal_inline void
-fnStacklsSetResetStackWalkerBuffer(PSTACKLSCTX pSlsCtx) {
+fnStacklsInitializeStackWalk(PSTACKLSCTX pSlsCtx) {
 	SecureZeroMemory(CTX_CurrentStackFrame, sizeof(STACKFRAME64));
 	ASSIGN_MACHINE_VALUES(CTX_CurrentStackFrame, CTX_MachineContext);
 }
@@ -244,5 +245,6 @@ fnStacklsFindProcessHandle(PSTACKLSCTX pSlsCtx) {
 }
 
 _hotbed_inline void
-fnStackls(PSTACKLSCTX pSlsCtx) {
+fnStacklsLoadTheNextFrame(PSTACKLSCTX pSlsCtx) {
+	CTX_StackIsAtBottom = !(StackWalk64(MACHINE_TYPE, CTX_ProcessHandle, NO_THREADS, CTX_CurrentStackFrame, CTX_MachineContext, NULL, SymFunctionTableAccess64, SymGetModuleBase64, NULL));
 }
