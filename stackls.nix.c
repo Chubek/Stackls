@@ -16,7 +16,7 @@
 #define PROG_LICENSE 2023 Chuback Bidpaa, Unlicense
 #define PROG_USAGE                                                            \
   Usage:                                                                      \
-  stackls[-o outpath] PID
+  stackls [-o outpath] PID
 #define PROG_EXAMPLE                                                          \
   Example:                                                                    \
   stackls 24212
