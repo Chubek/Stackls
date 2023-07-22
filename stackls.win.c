@@ -244,7 +244,7 @@ fnStacklsFindProcessHandle(PSTACKLSCTX pSlsCtx) {
 	}
 }
 
-_hotbed_inline void
+_hotbed_inline void 
 fnStacklsLoadTheNextFrame(PSTACKLSCTX pSlsCtx) {
 	CTX_StackIsAtBottom = !(StackWalk64(MACHINE_TYPE, CTX_ProcessHandle, NO_THREADS, CTX_CurrentStackFrame, CTX_MachineContext, NULL, SymFunctionTableAccess64, SymGetModuleBase64, NULL));
 }
