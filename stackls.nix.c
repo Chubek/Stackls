@@ -16,13 +16,13 @@
 #define PROG_LICENSE 2023 Chuback Bidpaa, Unlicense
 #define PROG_USAGE                                                            \
   Usage:                                                                      \
-  stackls [-o OutPath] PID
+  stackls[-o OutPath] PID
 #define PROG_EXAMPLE                                                          \
   Example:                                                                    \
   stackls 24212
 #define PROG_HINT                                                             \
   You may pass a filepath as output.Need not exit.Otherwise,                  \
-      prints to stdout. You can also redirect the PID via stdin, however,     \
+      prints to stdout.You can also redirect the PID via stdin, however,      \
       then, the arguments will not be working.
 
 #ifndef LINESIZE_MAX
@@ -118,8 +118,9 @@ stackls_parse_procid_str (stackls_t *slsctx)
 _coldbed_inline void
 stackls_get_strace_filename (stackls_t *slsctx)
 {
-  errno_CHECK (sprintf (&CTX_StraceFileName[0], "/proc/%s/stack", CTX_ProcessIdStr),
-               sprintf);
+  errno_CHECK (
+      sprintf (&CTX_StraceFileName[0], "/proc/%s/stack", CTX_ProcessIdStr),
+      sprintf);
 }
 
 _coldbed_inline void
@@ -188,9 +189,9 @@ stackls_print_strace_line (stackls_t *slsctx)
   if (!CTX_EOFReached)
     {
       size_t new_count = CTX_StackCounter++;
-      errno_CHECK (fprintf (CTX_OutputStream, OUTPUT_FMT, new_count,
-                            CTX_PreviousFunc),
-                   fprintf);
+      errno_CHECK (
+          fprintf (CTX_OutputStream, OUTPUT_FMT, new_count, CTX_PreviousFunc),
+          fprintf);
     }
 }
 
