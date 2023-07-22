@@ -1,3 +1,4 @@
+#include <alloca.h>
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -20,7 +21,9 @@
   Example:                                                                    \
   stackls 24212
 #define PROG_HINT                                                             \
-  You may pass a filepath as output.Need not exit.Otherwise, prints to stdout.
+  You may pass a filepath as output.Need not exit.Otherwise,                  \
+      prints to stdout.You can also redirect the PID via stdin, however,      \
+      then, the arguments will not be working.
 
 #ifndef LINESIZE_MAX
 #define LINESIZE_MAX 4096
@@ -109,7 +112,7 @@ typedef struct
 _coldbed_inline void
 stackls_get_strace_filename (stackls_t *slsctx)
 {
-  errno_CHECK (sprintf (&CTX_stracefname[0], "/proc/%d/stack", CTX_procidn),
+  errno_CHECK (sprintf (&CTX_stracefname[0], "/proc/%s/stack", CTX_procidstr),
                sprintf);
 }
 
@@ -246,10 +249,26 @@ parse_arguments (int argc, char **argv, stackls_t *slsctx)
     }
 }
 
+_static_func void
+parse_stdin (stackls_t *slsctx)
+{
+  char c, *pidstr = CTX_procidstr;
+  CTX_procidstr = alloca (INT_WIDTH);
+  fscanf (stdin, "%s", CTX_procidstr);
+  CHECK_PROCID (pidstr, c);
+}
+
 int
 main (int argc, char **argv)
 {
   stackls_t slsctx;
-  parse_arguments (argc, argv, &slsctx);
+  if (isatty (fileno (stdin)))
+    {
+      parse_stdin (&slsctx);
+    }
+  else
+    {
+      parse_arguments (argc, argv, &slsctx);
+    }
   stackls_main_iterative_procedure (&slsctx);
 }
