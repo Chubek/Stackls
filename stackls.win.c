@@ -200,7 +200,7 @@ fnStacklsDeallocateMachineContextBuffer(PSTACKLSCTX pSlsCtx) {
 
 _coldbed_inline void
 fnStacklsAllocateCurrentSymbolBuffer(PSTACKLS pSlsCtx) {
-	winerror(CTX_CurrentSymbol = (PSYMBOL_INFO)HeapAlloc(CTX_SelfHeapHandle, HEAP_ZERO, MAX_SYM_NAME), HeapAlloc);
+	winerror_CHECK(CTX_CurrentSymbol = (PSYMBOL_INFO)HeapAlloc(CTX_SelfHeapHandle, HEAP_ZERO, MAX_SYM_NAME), HeapAlloc);
 }
 
 _coldbed_inline void
