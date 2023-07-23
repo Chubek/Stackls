@@ -270,7 +270,7 @@ displayHelp() {
 }
 
 void
-parseArgs(int nArgs, LPWSTR *szArglist, PSTACKLSCTX pStraceCtx) {
+parseArgs(int nArgs, PTCHAR *szArglist, PSTACKLSCTX pStraceCtx) {
 	if (nArgs == 1)
 		displayHelp();
 	else if (nArgs == 2) {
@@ -294,9 +294,7 @@ parseArgs(int nArgs, LPWSTR *szArglist, PSTACKLSCTX pStraceCtx) {
 }
 
 int __cdecl main() {
-	LPWSTR *szArglist;
+	PTCHAR *szArglist;
 	int nArgs, i;
 	winerror_CHECK(szArglist = CommandLineToArgvW(GetCommandLineW(), &nArgs), CommandLineToArgvW);
-
-	
 }
