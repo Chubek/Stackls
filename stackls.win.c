@@ -157,7 +157,7 @@ fnErrorExit(LPTSTR pszFunction) {
 }
 
 _static_func void
-fnStacklsAllocateStaticBuffer(PSTACKLSCTX pStraceCtx) {
+fnStacklsAllocateStaticBuffers(PSTACKLSCTX pStraceCtx) {
 	_static_obj STACKLSCTX 			objStacklsMain = {0};
 	_static_obj PROCESSENTRY32 		objProcessEntry = {0};
 	_static_obj STACKFRAME64 		objStackFrame = {0};
@@ -257,6 +257,7 @@ fnStacklsExtractSymbolFromFrame(PSTACKLSCTX pStraceCtx) {
 
 _hotbed_inline void
 fnStacklsWriteSymbolToHandle(PSTACKLSCTX pStraceCtx) {
+	if (CTX_StackIsAtBottom) return;
 	DWORD64 qwWritten, qwRead;
  	fnStacklsResetIndicatorStr(pStraceCtx);
  	winerror_CHECK(StringCchPrintf(CTX_IndicatorStr, MAX_IND_SIZE, TEXT("[%lu] %s\n"), CTX_StackCounter, CTX_LastSymStr), StringCchPrintf);
@@ -264,18 +265,35 @@ fnStacklsWriteSymbolToHandle(PSTACKLSCTX pStraceCtx) {
 	winerror_CHECK(WriteFile(CTX_StandardOutput, CTX_IndicatorStr, qwRead, &qwWritten, NULL), WriteFile);
 }
 
+_hotbed_inline void
+fnStacklsIterateAndWalkStack(PSTACKLSCTX pStraceCtx) {
+	fnStacklsOpenOutputFile(pStraceCtx);
+	fnStacklsOpenSnapshotHandle(pStraceCtx);
+	fnStacklsFindProcessHandle(pStraceCtx);
+	fnStacklsInitiateContextAndSymbols(pStraceCtx);
+	fnStacklsInitializeStackWalk(pStraceCtx);
+
+	while (!CTX_StackIsAtBottom) {
+		fnStacklsLoadTheNextFrame(pStraceCtx);
+		fnStacklsExtractSymbolFromFrame(pStraceCtx);
+		fnStacklsWriteSymbolToHandle(pStraceCtx);
+	}
+
+	fnStacklsCloseAllHandles(pStraceCtx);
+}
+
 void
-displayHelp() {
+fnDisplayHelp() {
 	ExitProcess(0);
 }
 
 void
-parseArgs(int nArgs, PTCHAR *szArglist, PSTACKLSCTX pStraceCtx) {
+fnParseCmdlineArgs(int nArgs, PTCHAR *szArglist, PSTACKLSCTX pStraceCtx) {
 	if (nArgs == 1)
-		displayHelp();
+		fnDisplayHelp();
 	else if (nArgs == 2) {
 		if (!lstrcmpiW(szArglist[1], "--help") || !lstrcmpiW(szArglist[1], "-h"))
-			displayHelp();
+			fnDisplayHelp();
 		else {
 			DWORD64 qwArglen;
 			winerror_CHECK(StringCbLength(&szArglist[1][0], MAX_PROC_SIZE, &qwArglen), StringCbLength);
@@ -289,12 +307,18 @@ parseArgs(int nArgs, PTCHAR *szArglist, PSTACKLSCTX pStraceCtx) {
 		winerror_CHECK(StringCbCopy(CTX_OutputPathStr, &szArglist[2][0], qwOutptuPathLen), StringCbCopy);
 		winerror_CHECK(StringCbCopy(CTX_ProcessNameStr, &szArglist[3][0], qwProcessNameLen), StringCbCopy);
 	} else {
-		displayHelp();
+		fnDisplayHelp();
 	}
 }
 
-int __cdecl main() {
-	PTCHAR *szArglist;
-	int nArgs, i;
-	winerror_CHECK(szArglist = CommandLineToArgvW(GetCommandLineW(), &nArgs), CommandLineToArgvW);
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine, int nCmdShow) {
+	int 			nArgs;
+	PTCHAR 			*szArglist;
+	PSTACKLSCTX 	pStraceCtx;
+	
+	winerror_CHECK(szArglist = CommandLineToArgvW(lpCmdLine, &nArgs), CommandLineToArgvW);
+		
+	fnStacklsAllocateStaticBuffers(pStraceCtx);
+	fnParseCmdlineArgs(nArgs, szArglist, pStraceCtx);
+	fnStacklsIterateAndWalkStack(pStraceCtx);
 }
