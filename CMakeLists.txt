@@ -1,0 +1,6 @@
+project(Stackls C)
+if(CMAKE_HOST_SYSTEM_NAME EQUAL "Windows")
+	add_executable(PROJECT_NAME stackls.com.h stackls.win.h stackls.win.c)
+elseif(CMAKE_HOST_SYSTEM_NAME EQUAL "Linux")
+	add_executable(PROJECT_NAME stackls.com.h stackls.nix.h stackls.nix.c)
+endif()
