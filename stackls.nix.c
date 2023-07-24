@@ -10,114 +10,17 @@
 #include <string.h>
 #include <unistd.h>
 
-#define TRUE 1
+#include "stackls.com.h"
+#include "stackls.nix.h"
 
-#define PROG_NAME stackls
-#define PROG_LICENSE 2023 Chuback Bidpaa, Unlicense
-#define PROG_USAGE                                                            \
-  Usage:                                                                      \
-  stackls[-o OutPath] PID
-#define PROG_EXAMPLE                                                          \
-  Example:                                                                    \
-  stackls 24212
-#define PROG_HINT                                                             \
-  You may pass a filepath as output.Need not exit.Otherwise,                  \
-      prints to stdout.You can also redirect the PID via stdin, however,      \
-      then, the arguments will not be working.
-
-#ifndef LINESIZE_MAX
-#define LINESIZE_MAX 4096
-#endif
-
-#ifndef OUTPUT_FMT
-#define OUTPUT_FMT "[%lu] %s\n"
-#endif
-
-#if !defined(__linux__) || !defined(__linux) || !defined(__linux)             \
-    || !defined(__gnu_linux__) || !defined(__LINUX__)
-#warning "Compliant predefined CPP macros not detected."
-#warning                                                                      \
-    "This code is designed to be compiled and ran under the GNU Linux operating system."
-#warning "A Microsoft Windows version is provided."
-#endif
-
-#ifdef __GNUC__
-#define _normal_inline static inline __attribute__ ((always_inline))
-#define _hotbed_inline static inline __attribute__ ((always_inline, hot))
-#define _coldbed_inline static inline __attribute__ ((always_inline, cold))
-#define _fn_metadata file __FILE__, line __LINE__
-#define _fn_name __PRETTY_FUNCTION__
-#else
-#define _normal_inline static inline
-#define _hotbed_inline static inline
-#define _coldbed_inline static inline
-#define _fn_metadata file __FILE__, line __LINE__
-#define _fn_name __func__
-#endif
-
-#define _static_func static
-
-#define _str_raw(...) #__VA_ARGS__
-#define STR(...) _str_raw (__VA_ARGS__)
-#define STR_LF(...) STR (__VA_ARGS__ \n)
-
-#define _mmap(FD, OFFSET)                                                     \
-  mmap (NULL, MMAP_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE, FD, OFFSET)
-
-#define nixerror_CHECK(CLOSURE, CALL)                                         \
-  do                                                                          \
-    {                                                                         \
-      if (((long)(CLOSURE)) < 0)                                              \
-        {                                                                     \
-          fprintf (stderr, "Error at function %s:\n", _fn_name);              \
-          perror (STR (CALL at _fn_metadata));                                \
-          exit (EXIT_FAILURE);                                                \
-        }                                                                     \
-    }                                                                         \
-  while (0)
-
-#define CHECK_PROCID(PROCID, TMPCHR)                                          \
-  do                                                                          \
-    {                                                                         \
-      TMPCHR = *PROCID++;                                                     \
-      if (!isdigit (TMPCHR) && TMPCHR)                                        \
-        {                                                                     \
-          fprintf (stderr, STR_LF (Invalid process id, pass `--help`));       \
-          exit (EXIT_FAILURE);                                                \
-        }                                                                     \
-    }                                                                         \
-  while (TMPCHR)
-
-#define CTX_StraceFileName slsctx->strace_fname
-#define CTX_PreviousLine slsctx->previous_line
-#define CTX_PreviousFunc slsctx->previous_func
-#define CTX_StackCounter slsctx->stack_counter
-#define CTX_InputStream slsctx->input_stream
-#define CTX_OutputStream slsctx->output_stream
-#define CTX_EOFReached slsctx->reached_eof
-#define CTX_OutPath slsctx->outputfile_name
-#define CTX_ProcessIdStr slsctx->process_id_str
-#define CTX_ProcessIdInt slsctx->process_id_int
-
-typedef struct
-{
-  uint8_t strace_fname[FILENAME_MAX], previous_line[LINESIZE_MAX];
-  char *process_id_str, *outputfile_name;
-  FILE *input_stream, *output_stream;
-  uint8_t *previous_func;
-  size_t stack_counter;
-  pid_t process_id_int;
-  int reached_eof;
-} stackls_t;
-
-_coldbed_inline void
+void
 stackls_parse_procid_str (stackls_t *slsctx)
 {
   nixerror_CHECK (CTX_ProcessIdInt = (pid_t)strtoll (CTX_ProcessIdStr, NULL, 10),
                strtoll);
 }
 
-_coldbed_inline void
+void
 stackls_get_strace_filename (stackls_t *slsctx)
 {
   nixerror_CHECK (
@@ -125,13 +28,13 @@ stackls_get_strace_filename (stackls_t *slsctx)
       sprintf);
 }
 
-_coldbed_inline void
+void
 stackls_open_strace_fstream (stackls_t *slsctx)
 {
   nixerror_CHECK (CTX_InputStream = fopen (&CTX_StraceFileName[0], "r"), fopen);
 }
 
-_coldbed_inline void
+void
 stackls_open_output_fstream (stackls_t *slsctx)
 {
   if (CTX_OutputStream != stdout)
@@ -140,13 +43,13 @@ stackls_open_output_fstream (stackls_t *slsctx)
     CTX_OutputStream = stdout;
 }
 
-_coldbed_inline void
+void
 stackls_close_input_fstream (stackls_t *slsctx)
 {
   fclose (CTX_InputStream);
 }
 
-_coldbed_inline void
+void
 stackls_close_output_stream (stackls_t *slsctx)
 {
   nixerror_CHECK (fprintf (CTX_OutputStream, "\n"), fprintf);
@@ -154,7 +57,7 @@ stackls_close_output_stream (stackls_t *slsctx)
     fclose (CTX_OutputStream);
 }
 
-_hotbed_inline void
+void
 stackls_read_strace_line (stackls_t *slsctx)
 {
   char cchr;
@@ -185,7 +88,7 @@ stackls_parse_strace_line (stackls_t *slsctx)
   CTX_PreviousFunc = &CTX_PreviousLine[space_offset++];
 }
 
-_normal_inline void
+void
 stackls_print_strace_line (stackls_t *slsctx)
 {
   if (!CTX_EOFReached)
@@ -197,7 +100,7 @@ stackls_print_strace_line (stackls_t *slsctx)
     }
 }
 
-_hotbed_inline void
+void
 stackls_main_iterative_procedure (stackls_t *slsctx)
 {
   stackls_get_strace_filename (slsctx);
@@ -216,7 +119,7 @@ stackls_main_iterative_procedure (stackls_t *slsctx)
   stackls_close_input_fstream (slsctx);
 }
 
-_static_func void
+void
 display_help ()
 {
   fprintf (stdout, STR_LF (PROG_NAME PROG_LICENSE));
@@ -227,7 +130,7 @@ display_help ()
   exit (EXIT_SUCCESS);
 }
 
-_static_func void
+void
 parse_arguments (int argc, char **argv, stackls_t *slsctx)
 {
   if (argc == 1)
@@ -262,7 +165,7 @@ parse_arguments (int argc, char **argv, stackls_t *slsctx)
     }
 }
 
-_static_func void
+void
 parse_stdin (stackls_t *slsctx)
 {
   char c, *pidstr = CTX_ProcessIdStr;
