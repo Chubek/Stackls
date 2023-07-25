@@ -1,8 +1,6 @@
 #ifndef STACKLS_WINDOWS_H
 #define STACKLS_WINDOWS_H
 
-
-
 #if defined(_M_IX86) || defined(__x86__)
 #define MACHINE_TYPE IMAGE_FILE_MACHINE_I386
 #define ASSIGN_MACHINE_VALUES(STACKW, CONTEXT)                                                                         \
@@ -43,16 +41,14 @@
     } while (0)
 #endif
 
-
 #define winerror_CHECK(CLOSURE, CALL)                                                                                  \
     do                                                                                                                 \
     {                                                                                                                  \
         CLOSURE;                                                                                                       \
-        DWORD64 dwLastError = GetLastError();                                                                          \
-        if (dwLastError < 0)                                                                                           \
+        INT64 dwLastError = GetLastError();                                                                            \
+        if (dwLastError != 0)                                                                                          \
             fnErrorExit(STR_CRLF(at call CALL, _fn_metadata), dwLastError);                                            \
     } while (0)
-
 
 #ifndef MAX_PROC_NAME
 #define MAX_PROC_NAME 128
@@ -70,6 +66,13 @@
 #define MAX_MDATA_SIZE 512
 #endif
 
+#define PROC_ENTRY_LEN sizeof(PROCESSENTRY32)
+#define PROC_CONTEXT_LEN sizeof(CONTEXT)
+#define STACKFRAME_LEN sizeof(dbgfn_StackFrameObj)
+#define SYMINFO_LEN sizeof(dbgfn_SymbolInfoObj)
+#define MAIN_CONTEXT_LEN sizeof(STACKLSCTX)
+#define MESSAGE_LEN 1024
+
 #define NO_FLAGS 0
 #define MSG_FLAGS FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS
 #define NO_THREADS 0
@@ -82,17 +85,19 @@
 #define dbgfn_SymbolInfoPtr PIMAGEHLP_SYMBOL
 #define dbgfn_SymbolInfoObj IMAGEHLP_SYMBOL
 #define dbgfn_SymbolLenIdent MaxNameLength
+#define dbgfn_StackFrameObj STACKFRAME
 #else
 #define dbgfn_StackWalk StackWalk64
 #define dbgfn_SymFunctionTableAccess SymFunctionTableAccess64
 #define dbgfn_SymGetModuleBase SymGetModuleBase64
-#define dbgfn_SymFromAddr SymFromAddr
-#define dbgfn_SymbolInfoPtr PSYMBOL_INFO
-#define dbgfn_SymbolInfoObj SYMBOL_INFO
-#define dbgfn_SymbolLenIdent MaxNameLen
+#define dbgfn_SymFromAddr SymGetSymFromAddr64
+#define dbgfn_SymbolInfoPtr PIMAGEHLP_SYMBOL
+#define dbgfn_SymbolInfoObj IMAGEHLP_SYMBOL
+#define dbgfn_SymbolLenIdent MaxNameLength
+#define dbgfn_StackFrameObj STACKFRAME64
 #endif
 
-#define CTX_MainContextObj pStraceCtx
+#define CTX_MainContextPtr ppStraceCtx
 #define CTX_ProcessNameStr pStraceCtx->pszProcessName
 #define CTX_LastSymNameStr pStraceCtx->pszLastSymName
 #define CTX_IndicatorStr pStraceCtx->pszStackIndicator
@@ -108,10 +113,18 @@
 #define CTX_CurrentSymbol pStraceCtx->pCurrentSymbol
 #define CTX_Displacement pStraceCtx->qwDisplacement
 #define CTX_StackCounter pStraceCtx->qwStackCounter
+#define CTX_OutputMode pStraceCtx->fOutputMode
+
+typedef enum
+{
+    OutputToStdOut,
+    OutputToFile,
+} OutputMode;
 
 typedef struct
 {
-    PTCHAR pszProcessName, pszEntryProcesssName, pszLastSymName, pszStackIndicator, pszOutPath;
+    LPCTSTR pszProcessName, pszEntryProcesssName, pszLastSymName, pszStackIndicator, pszOutPath;
+    OutputMode fOutputMode;
     HANDLE hProcess, hSnapshot, hOutput;
     DWORD64 qwDisplacement, qwStackCounter;
     PROCESSENTRY32 *pProcessEntry;
@@ -121,8 +134,8 @@ typedef struct
     BOOL bTraceEnded;
 } STACKLSCTX, *PSTACKLSCTX;
 
-
 _noreturn_inline void fnErrorExit(PTCHAR pszMetadata, DWORD64 qwLastError);
+_static_func void fnStacklsAllocateContextBuffer(PSTACKLSCTX *ppStraceCtx);
 _static_func void fnStacklsAllocateStaticBuffers(PSTACKLSCTX pStraceCtx);
 _coldbed_inline void fnStacklsOpenOutputFile(PSTACKLSCTX pStraceCtx);
 _coldbed_inline void fnStacklsOpenSnapshotHandle(PSTACKLSCTX pStraceCtx);
@@ -130,6 +143,8 @@ _coldbed_inline void fnStacklsOpenProcessHandle(PSTACKLSCTX pStraceCtx);
 _coldbed_inline void fnStacklsCloseAllHandles(PSTACKLSCTX pStraceCtx);
 _hotbed_inline void fnStacklsFindProcessHandle(PSTACKLSCTX pStraceCtx);
 _normal_inline void fnStacklsInitiateContextAndSymbols(PSTACKLSCTX pStraceCtx);
+_normal_inline void fnStacklsRefreshSymbolContext(PSTACKLSCTX pStraceCtx);
+_normal_inline void fnStacklsCleanUpSymbolContext(PSTACKLSCTX pStraceCtx);
 _normal_inline void fnStacklsInitializeStackWalk(PSTACKLSCTX pStraceCtx);
 _normal_inline void fnStacklsResetIndicatorStr(PSTACKLSCTX pStraceCtx);
 _hotbed_inline void fnStacklsLoadTheNextFrame(PSTACKLSCTX pStraceCtx);
@@ -138,6 +153,5 @@ _hotbed_inline void fnStacklsWriteSymbolToHandle(PSTACKLSCTX pStraceCtx);
 _hotbed_inline void fnStacklsIterateAndWalkStack(PSTACKLSCTX pStraceCtx);
 void fnDisplayHelp();
 void fnParseCmdlineArgs(int nArgs, PTCHAR *szArglist, PSTACKLSCTX pStraceCtx);
-
 
 #endif

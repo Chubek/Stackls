@@ -1,12 +1,13 @@
 #define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#include <tchar.h>
-#include <shellapi.h>
-#include <strsafe.h>
-#include <tlhelp32.h>
-#include <winbase.h>
+#define DBGHELP_TRANSLATE_TCHAR
 #include <dbghelp.h>
 #include <errhandlingapi.h>
+#include <shellapi.h>
+#include <strsafe.h>
+#include <tchar.h>
+#include <tlhelp32.h>
+#include <winbase.h>
+#include <windows.h>
 
 #include "stackls.com.h"
 #include "stackls.win.h"
@@ -14,49 +15,52 @@
 void fnErrorExit(PTCHAR pszMetadata, DWORD64 qwLastError)
 {
     SIZE_T sizeMetadata, sizeMessage;
-    PTCHAR pszMessage;
+    LPCTSTR nullBufferMessage = NULL;
     HANDLE hStdOut;
 
-    sizeMessage =
-        FormatMessage(MSG_FLAGS, NULL, qwLastError, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), pszMessage, 0, NULL);
+    sizeMessage = FormatMessage(MSG_FLAGS, NULL, qwLastError, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                                (LPSTR)&nullBufferMessage, 0, NULL);
     hStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
     StringCbLength(pszMetadata, MAX_MDATA_SIZE, &sizeMetadata);
 
-    WriteFile(hStdOut, pszMessage, sizeMessage, NULL, NULL);
+    WriteFile(hStdOut, nullBufferMessage, sizeMessage, NULL, NULL);
     WriteFile(hStdOut, pszMetadata, sizeMetadata, NULL, NULL);
+
+    LocalFree(nullBufferMessage);
+
     ExitProcess(qwLastError);
 }
 
 void fnStacklsAllocateContextBuffer(PSTACKLSCTX *ppStraceCtx)
 {
-    BYTE objStacklsMainBuffer[sizeof(STACKLSCTX)] = {0};
-    *CTX_MainContextPtr = (PSTACKLSCTX)&objStacklsMainBuffer[0];
+    _static_obj BYTE rawBufferMainContext[MAIN_CONTEXT_LEN] = {0};
+    *CTX_MainContextPtr = (PSTACKLSCTX)&rawBufferMainContext[0];
 }
 
 void fnStacklsAllocateStaticBuffers(PSTACKLSCTX pStraceCtx)
 {
-    BYTE objProcessEntry[sizeof(PROCESSENTRY32)] = {0};
-    BYTE objMachineContext[sizeof(CONTEXT)] = {0};
-    BYTE objStackFrame[sizeof(dbgfn_StackFrameObj)] = {0};
-    BYTE objSymbolInfo[sizeof(dbgfn_SymbolInfoObj)] = {0};
-    TCHAR aProcessName[MAX_PROC_NAME] = {0};
-    TCHAR aLastSymName[MAX_SYM_NAME] = {0};
-    TCHAR aStackIndicator[MAX_IND_SIZE] = {0};
-    TCHAR aOutputPath[MAX_PATH] = {0};
+    _static_obj BYTE rawBufferProcessEntry[PROC_ENTRY_LEN] = {0};
+    _static_obj BYTE rawBufferMachineContext[PROC_CONTEXT_LEN] = {0};
+    _static_obj BYTE rawBufferStackFrame[STACKFRAME_LEN] = {0};
+    _static_obj BYTE rawBufferSymbolInfo[SYMINFO_LEN] = {0};
+    _static_obj TCHAR rawBufferProccessName[MAX_PROC_NAME] = {0};
+    _static_obj TCHAR rawBufferLastSymName[MAX_SYM_NAME] = {0};
+    _static_obj TCHAR rawBufferStackIndicator[MAX_IND_SIZE] = {0};
+    _static_obj TCHAR rawBufferOutputPath[MAX_PATH] = {0};
 
-    CTX_ProcessEntryBuff = (PROCESSENTRY32*)&objProcessEntry[0];
-    CTX_CurrentStackFrame = (dbgfn_StackFrameObj*)&objStackFrame[0];
-    CTX_MachineContext = (CONTEXT*)&objMachineContext[0];
-    CTX_CurrentSymbol = (dbgfn_SymbolInfoObj*)&objSymbolInfo[0];
-    CTX_ProcessNameStr = (LPCTSTR)&aProcessName[0];
-    CTX_LastSymNameStr = (LPCTSTR)&aLastSymName[0];
-    CTX_IndicatorStr = (LPCTSTR)&aStackIndicator[0];
-    CTX_OutputPathStr = (LPCTSTR)&aOutputPath[0];
+    CTX_ProcessEntryBuff = (PROCESSENTRY32 *)&rawBufferProcessEntry[0];
+    CTX_CurrentStackFrame = (dbgfn_StackFrameObj *)&rawBufferStackFrame[0];
+    CTX_MachineContext = (CONTEXT *)&rawBufferMachineContext[0];
+    CTX_CurrentSymbol = (dbgfn_SymbolInfoObj *)&rawBufferSymbolInfo[0];
+    CTX_ProcessNameStr = (LPCTSTR)&rawBufferProccessName[0];
+    CTX_LastSymNameStr = (LPCTSTR)&rawBufferLastSymName[0];
+    CTX_IndicatorStr = (LPCTSTR)&rawBufferStackIndicator[0];
+    CTX_OutputPathStr = (LPCTSTR)&rawBufferOutputPath[0];
 }
 
 void fnStacklsOpenOutputFile(PSTACKLSCTX pStraceCtx)
 {
-    if (!CTX_OutputPathStr)
+    if (CTX_OutputMode == OutputToStdOut)
     {
         winerror_CHECK(CTX_OutputFileHandle = GetStdHandle(STD_OUTPUT_HANDLE), GetStdHandle);
     }
@@ -99,6 +103,7 @@ void fnStacklsFindProcessHandle(PSTACKLSCTX pStraceCtx)
             if (!dwStrCmpRes)
             {
                 fnStacklsOpenProcessHandle(pStraceCtx);
+                return;
             }
         }
     }
@@ -110,6 +115,16 @@ void fnStacklsInitiateContextAndSymbols(PSTACKLSCTX pStraceCtx)
     winerror_CHECK(SymInitialize(CTX_ProcessHandle, NULL, TRUE), SymInitialize);
     CTX_CurrentSymbol->SizeOfStruct = sizeof(dbgfn_SymbolInfoObj);
     CTX_CurrentSymbol->dbgfn_SymbolLenIdent = MAX_SYM_NAME;
+}
+
+void fnStacklsRefreshSymbolContext(PSTACKLSCTX pStraceCtx)
+{
+    winerror_CHECK(SymRefreshModuleList(CTX_ProcessHandle), SymRefreshModuleList);
+}
+
+void fnStacklsCleanUpSymbolContext(PSTACKLSCTX pStraceCtx)
+{
+    winerror_CHECK(SymCleanup(CTX_ProcessHandle), SymCleanup);
 }
 
 void fnStacklsInitializeStackWalk(PSTACKLSCTX pStraceCtx)
@@ -134,7 +149,7 @@ void fnStacklsExtractSymbolFromFrame(PSTACKLSCTX pStraceCtx)
 {
     winerror_CHECK(dbgfn_SymFromAddr(CTX_ProcessHandle, CTX_CurrentStackFrame->AddrPC.Offset, &CTX_Displacement,
                                      CTX_CurrentSymbol),
-                   SymFromAddr);
+                   dbgfn_SymFromAddr);
     winerror_CHECK(
         UnDecorateSymbolName(CTX_CurrentSymbol->Name, (PSTR)CTX_LastSymNameStr, MAX_SYM_NAME, UNDNAME_COMPLETE),
         UnDecorateSymbolName);
@@ -164,10 +179,12 @@ void fnStacklsIterateAndWalkStack(PSTACKLSCTX pStraceCtx)
     while (!CTX_StackIsAtBottom)
     {
         fnStacklsLoadTheNextFrame(pStraceCtx);
+        fnStacklsRefreshSymbolContext(pStraceCtx);
         fnStacklsExtractSymbolFromFrame(pStraceCtx);
         fnStacklsWriteSymbolToHandle(pStraceCtx);
     }
 
+    fnStacklsCleanUpSymbolContext(pStraceCtx);
     fnStacklsCloseAllHandles(pStraceCtx);
 }
 
@@ -176,7 +193,7 @@ void fnDisplayHelp()
     ExitProcess(0);
 }
 
-void fnParseCmdlineArgs(int nArgs, PTCHAR* szArglist, PSTACKLSCTX pStraceCtx)
+void fnParseCmdlineArgs(int nArgs, TCHAR *szArglist[], PSTACKLSCTX pStraceCtx)
 {
     if (nArgs == 1)
         fnDisplayHelp();
@@ -186,19 +203,20 @@ void fnParseCmdlineArgs(int nArgs, PTCHAR* szArglist, PSTACKLSCTX pStraceCtx)
             fnDisplayHelp();
         else
         {
-            SIZE_T qwArglen;
-            winerror_CHECK(StringCbLength(&szArglist[1][0], MAX_PROC_NAME, &qwArglen), StringCbLength);
-            winerror_CHECK(StringCbCopy(CTX_ProcessNameStr, qwArglen, szArglist[1]), StringCbCopy);
-            CTX_OutputPathStr = NULL;
+            winerror_CHECK(StringCbCopy(CTX_ProcessNameStr, MAX_PROC_NAME, szArglist[1]), StringCbCopy);
+            CTX_OutputMode = OutputToStdOut;
         }
     }
     else if (nArgs == 4)
     {
-        SIZE_T qwProcessNameLen, qwOutputPathLen;
-        winerror_CHECK(StringCbLength(&szArglist[2][0], MAX_PATH, &qwOutputPathLen), StrinCbLength);
-        winerror_CHECK(StringCbLength(&szArglist[3][0], MAX_PROC_NAME, &qwProcessNameLen), StrinCbLength);
-        winerror_CHECK(StringCbCopy(CTX_OutputPathStr, qwOutputPathLen, szArglist[2]), StringCbCopy);
-        winerror_CHECK(StringCbCopy(CTX_ProcessNameStr, qwProcessNameLen, szArglist[3]), StringCbCopy);
+        if (!lstrcmpi(szArglist[1], "-o"))
+            fnDisplayHelp();
+        else
+        {
+            winerror_CHECK(StringCbCopy(CTX_OutputPathStr, MAX_PATH, szArglist[2]), StringCbCopy);
+            winerror_CHECK(StringCbCopy(CTX_ProcessNameStr, MAX_PROC_NAME, szArglist[3]), StringCbCopy);
+            CTX_OutputMode = OutputToFile;
+        }
     }
     else
     {
@@ -206,12 +224,12 @@ void fnParseCmdlineArgs(int nArgs, PTCHAR* szArglist, PSTACKLSCTX pStraceCtx)
     }
 }
 
-int _tmain(int nArgs, TCHAR *pszArglist[])
+int _tmain(int argc, TCHAR *argv[])
 {
-    PSTACKLSCTX pStraceCtx = {0};
+    PSTACKLSCTX pStraceCtx = 0;
 
     fnStacklsAllocateContextBuffer(&pStraceCtx);
     fnStacklsAllocateStaticBuffers(pStraceCtx);
-    fnParseCmdlineArgs(nArgs, pszArglist, pStraceCtx);
+    fnParseCmdlineArgs(argc, argv, pStraceCtx);
     fnStacklsIterateAndWalkStack(pStraceCtx);
-}  
+}
