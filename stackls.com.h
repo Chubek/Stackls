@@ -26,7 +26,7 @@
 #define _normal_inline static inline __forceinline
 #define _hotbed_inline static inline __forceinline
 #define _coldbed_inline static inline __forceinline
-#define _noreturn_inline static inline __forceinline _Noreturn
+#define _noreturn_inline static inline __declspec(noreturn)
 #define _fn_metadata file __FILE__, line __LINE__
 #define _fn_name __func__
 #else
